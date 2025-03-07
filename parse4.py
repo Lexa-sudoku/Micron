@@ -1,14 +1,12 @@
 import asyncio
-import time
-
+import json
+from typing import Any
 import aiohttp
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.chrome.webdriver import WebDriver as ChromeDriver
 from selenium_stealth import stealth
 import random
 
@@ -55,7 +53,13 @@ async def fetch_page(session: aiohttp.ClientSession, url: str) -> str:
         return await response.text()
 
 
-async def parse_platan(link: str) -> list:
+async def save_json(arr, filename):
+    with open(f"{filename}.json", "w", encoding="utf-8") as f:
+        f.write(json.dumps(arr, ensure_ascii=False))
+        f.close()
+
+
+async def parse_platan(link: str) -> list[Any] | dict[str, list[dict[str, str | None | Any]]]:
     driver = configure_driver()
     driver.get(link)
 
@@ -63,7 +67,7 @@ async def parse_platan(link: str) -> list:
         results_text = driver.find_element(By.XPATH, "//h1[@class='text-success mb-5 pl-3 pl-md-0']/sub").text
         if not results_text:
             driver.quit()
-            return []
+            return {'ПЛАТАН': []}
     except Exception as e:
         print("Ошибка при поиске элемента с количеством результатов:", e)
 
@@ -120,10 +124,10 @@ async def parse_platan(link: str) -> list:
             print(f"Ошибка при парсинге товара: {e}")
 
     driver.quit()
-    return parsed_products
+    return {'ПЛАТАН': parsed_products}
 
 
-async def parse_dip8(link: str, proxy: str = None) -> list:
+async def parse_dip8(link: str, proxy: str = None) -> dict[str, list[dict[str, str | None | Any]]] | None:
     driver = configure_driver(proxy)
     driver.get(link)
 
@@ -148,9 +152,9 @@ async def parse_dip8(link: str, proxy: str = None) -> list:
                     full_url = link
                 try:
                     # Количество на складе
-                    availability = product.find_element(By.XPATH, ".//*[contains(@class, 'yellow')]").text
+                    availability = product.find_element(By.XPATH, ".//*[contains(@class, 'yellow')]").text + '.'
                 except:
-                    availability = product.find_element(By.XPATH, ".//*[contains(@class, 'fa fa-check yellow')]").text
+                    availability = product.find_element(By.XPATH, ".//*[contains(@class, 'fa fa-check yellow')]").text + '.'
                 if availability.endswith('0 шт'):
                     availability = 'Нет в наличии'
 
@@ -165,16 +169,16 @@ async def parse_dip8(link: str, proxy: str = None) -> list:
                             price_list.append({"price": price, "quantity": quantity})
                         except Exception as e:
                             print(f"Ошибка при парсинге цены: {e}")
-                            price_list.append({"price": "N/A", "quantity": "N/A"})
+                            price_list.append({"price": "-", "quantity": "-"})
                 except Exception as e:
                     print(f"Ошибка при поиске цен: {e}")
-                    price_list.append({"price": "N/A", "quantity": "N/A"})
+                    price_list.append({"price": "-", "quantity": "-"})
                 price_string = ''
                 for price_info in price_list:
                     price = price_info['price'].replace(' ', '')
                     if price_info["quantity"] == "от 1":
                         price_info['quantity'] = f"{price_info['quantity']} шт"
-                    price_string += f"\n  {price_info['quantity']}. — {price} руб./шт."
+                    price_string += f"\n  {price_info['quantity']} шт. — {price} руб./шт."
 
                 # Собираем информацию в словарь
                 parsed_products.append({
@@ -188,13 +192,13 @@ async def parse_dip8(link: str, proxy: str = None) -> list:
 
         driver.quit()
 
-        return parsed_products
+        return {'DIP8': parsed_products}
     except Exception as e:
         print(f"Ошибка при обработке страницы: {e}")
         driver.quit()
 
 
-async def parse_MIREKOM(link: str) -> list:
+async def parse_mirecom(link: str) -> dict[str, list[dict[str, str | list[str] | None]]] | None:
     driver = configure_driver()
     driver.get(link)
 
@@ -204,6 +208,7 @@ async def parse_MIREKOM(link: str) -> list:
         for header in headers[1:]:
             driver.execute_script("arguments[0].click();", header)
             await asyncio.sleep(0.5)  # Wait for the content to load
+
         # Получаем все карточки товаров
         products = driver.find_elements(By.XPATH, '//*[@class="line"]')
 
@@ -224,10 +229,10 @@ async def parse_MIREKOM(link: str) -> list:
                 # Получаем цену и количество товара
                 if product[-1] == 'Нет в наличии':
                     availability = product[-1]
-                    price = 'N/A'
+                    price = '-'
                 else:
                     availability = product[-4]
-                    price = product[-3].strip(' р.')
+                    price = f"\n  от 1 шт. — {product[-3].strip(' р.') + '.00'} руб./шт."
 
                 # Собираем информацию в словарь
                 parsed_products.append({
@@ -240,13 +245,13 @@ async def parse_MIREKOM(link: str) -> list:
                 print(f"Ошибка при парсинге товара: {e}")
 
         driver.quit()
-        return parsed_products
+        return {'МИРЭКОМ': parsed_products}
     except Exception as e:
         print(f"Ошибка при обработке страницы: {e}")
         driver.quit()
 
 
-async def parse_RADIOCOMPLECT(link: str) -> list:
+async def parse_radiocomplect(link: str) -> dict[str, list[dict[str, str | None]]] | None:
     driver = configure_driver()
     driver.get(link)
     driver.set_window_size(1900, 1200)
@@ -268,30 +273,30 @@ async def parse_RADIOCOMPLECT(link: str) -> list:
                 # Цена
                 price = product.find_element(By.XPATH,
                                              ".//div[contains(@class, 'prd_form__price')]/span[contains(@class, 'prd_form__price_val')]").text.strip()
+                price_string = f'\n  от 1 шт. — {price}.00 руб./шт.'
 
                 # Наличие
                 availability = product.find_element(By.XPATH,
-                                                    ".//span[contains(@class, 'prd_form__q_ex')]").text.strip()
+                                                    ".//span[contains(@class, 'prd_form__q_ex')]").text.strip().title()
 
                 # Собираем информацию в словарь
                 parsed_products.append({
                     "name": name,
                     "url": full_url,
-                    "price": price,
+                    "price": price_string,
                     "availability": availability
                 })
             except Exception as e:
                 print(f"Ошибка при парсинге товара: {e}")
 
         driver.quit()
-
-        return parsed_products
+        return {'RADIOCOMPLECT': parsed_products}
     except Exception as e:
         print(f"Ошибка при обработке страницы: {e}")
         driver.quit()
 
 
-async def parse_CHIPSTER(link: str) -> list:
+async def parse_chipster(link: str) -> list[dict[str, str]] | None:
     driver = configure_driver()
     driver.get(link)
 
@@ -333,7 +338,7 @@ async def parse_CHIPSTER(link: str) -> list:
         driver.quit()
 
 
-async def parse_ChipDip(link: str) -> list:
+async def parse_chipdip(link: str) -> dict[str, list[dict[str, str | Any]]] | None:
     driver = configure_driver()
     driver.get(link)
     driver.refresh()
@@ -395,7 +400,7 @@ async def parse_ChipDip(link: str) -> list:
                 print(f"Ошибка при извлечении данных: {e}")
 
         driver.quit()
-        return parsed_products
+        return {'ChipDip': parsed_products}
     except Exception as e:
         print(f"Ошибка при обработке страницы: {e}")
         driver.quit()
@@ -417,90 +422,46 @@ async def main():
     async with aiohttp.ClientSession() as session:
         # Запуск всех функций параллельно
         results = await asyncio.gather(
-            # parse_platan(link_platan),
+            parse_platan(link_platan),
             parse_dip8(link_dip8),
-            # parse_MIREKOM(link_mirekom),
-            # parse_RADIOCOMPLECT(link_radiocomplect),
+            parse_mirecom(link_mirekom),
+            parse_radiocomplect(link_radiocomplect),
             # parse_CHIPSTER(link_chipster),
-            parse_ChipDip(link_chipdip)
+            parse_chipdip(link_chipdip)
         )
 
-        # Обработка результатов
-        products_platan, products_dip8, products_mirekom, products_radiocomplect, products_chipster, products_chipdip = results
-        # products_dip8, products_chipdip = results
+        # Обработка результатов в json
+        output_results = {}
+        for elem in results:
+            parse_site = list(elem.keys())[0]
+            parse_result = list(elem.values())[0]
+            output_results[parse_site] = parse_result
 
-        # Вызов функции parse_platan
-        print("Результаты для Platan:")
-        if products_platan:
-            for product in products_platan:
-                print(f"Название: {product['name']}")
-                print(f"Ссылка: {product['url']}")
-                print(f"Цена: {product['price']}")
-                print(f"Наличие: {product['availability']}")
-                print('-' * 40)
-        else:
-            print("Результатов не найдено")
-
-        # Вызов функции parse_dip8
-        print("Результаты для DIP8:")
-        if products_dip8:
-            for product in products_dip8:
-                print(f"Название: {product['name']}")
-                print(f"Ссылка: {product['url']}")
-                print(f"Цена: {product['price']}")
-                print(f"Наличие: {product['availability']}")
-                print('-' * 40)
-        else:
-            print("Результатов не найдено")
-
-        # Вызов функции parse_MIREKOM
-
-        print("Результаты для MIREKOM:")
-        if products_mirekom:
-            for product in products_mirekom:
-                print(f"Название: {product['name']}")
-                print(f"Ссылка: {product['url']}")
-                print(f"Цена: {product['price']}")
-                print(f"Наличие: {product['availability']}")
-                print('-' * 40)
-        else:
-            print("Результатов не найдено")
-
-        # Вызов функции parse_radiocomplect
-        print("Результаты для RADIOCOMPLECT:")
-        if products_radiocomplect:
-            for product in products_radiocomplect:
-                print(f"Название: {product['name']}")
-                print(f"Ссылка: {product['url']}")
-                print(f"Цена: {product['price']} руб.")
-                print(f"Наличие: {product['availability']}")
-                print('-' * 40)
-        else:
-            print("Результатов не найдено")
+        # Вывод результатов
+        for site, result in output_results.items():
+            print(f"\n\nРезультаты для {site}:")
+            if result:
+                for product in result:
+                    print(f"Название: {product['name']}")
+                    print(f"Ссылка: {product['url']}")
+                    print(f"Цена: {product['price']}")
+                    print(f"Наличие: {product['availability']}")
+                    print('-' * 40)
+            else:
+                print("Результатов не найдено")
 
         # Вызов функции parse_chipster
-        print("Результаты для CHIPSTER:")
-        if products_chipster:
-            for product in products_chipster:
-                print(f"Название: {product['name']}")
-                print(f"Ссылка: {product['url']}")
-                print(f"Артикул: {product['article']}")
-                print(f"Цена: {product['price']} руб.")
-                print(f"Наличие: {product['availability']}")
-                print('-' * 40)
-        else:
-            print("Результатов не найдено")
-
-        print("Результаты для ChipDip:")
-        if products_chipdip:
-            for product in products_chipdip:
-                print(f"Название: {product['name']}")
-                print(f"Ссылка: {product['url']}")
-                print(f"Цена: {product['price']}")
-                print(f"Наличие: {product['availability']}")
-                print('-' * 40)
-        else:
-            print("Результатов не найдено")
+        # print("Результаты для CHIPSTER:")
+        # if products_chipster:
+        #     for product in products_chipster:
+        #         print(f"Название: {product['name']}")
+        #         print(f"Ссылка: {product['url']}")
+        #         print(f"Артикул: {product['article']}")
+        #         print(f"Цена: {product['price']} руб.")
+        #         print(f"Наличие: {product['availability']}")
+        #         print('-' * 40)
+        # else:
+        #     print("Результатов не найдено")
 
 
 # Запуск основного асинхронного цикла

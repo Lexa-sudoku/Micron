@@ -93,9 +93,9 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
 
 
 def main():
-    # token = '7729099930:AAFveGDAgd6oBzzVtufJKbk2oMyNgbcnz3Q'
+    token = '7729099930:AAFveGDAgd6oBzzVtufJKbk2oMyNgbcnz3Q'
     # my
-    token = '7160408679:AAHHo2JYCv4JsDt8FIs29mGv0x9PxoqExrQ'
+    # token = '7160408679:AAHHo2JYCv4JsDt8FIs29mGv0x9PxoqExrQ'
     app = Application.builder().token(token).build()
 
     app.add_handler(CommandHandler('start', start))

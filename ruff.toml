@@ -1,0 +1,38 @@
+# Ruff.toml
+
+# Базовые настройки
+target_version = ["py39"]
+line-length = 88
+fix = true
+ignore = []
+select = []
+extend-select = []
+extend-ignore = []
+per-file-ignores = {}
+exclude = [
+    # Исключаем файлы тестов
+    "/inDev/",
+]
+
+# Настройки форматов
+fmt: true
+check: true
+autofix: true
+
+# Правила PEP8 (Pycodеstyle)
+pep8: true
+
+# Правила PyFlakes
+pyflakes: true
+
+# Правила Mypy
+mypy: false
+
+# Правила безопасности
+bandit: true
+
+# Дополнительные правила
+rules = {
+    # Выключаем правило, если оно вам мешает
+    "PLW0121": false,
+}

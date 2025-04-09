@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-import parsePlaywright
+import parsers.parsePlaywright as parsePlaywright
 import asyncio
 
 def start(update: Update, context: CallbackContext) -> None:

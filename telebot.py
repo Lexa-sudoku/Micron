@@ -2,7 +2,7 @@ import html
 import json
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-import parsePlaywright
+from parsers import parsePlaywright
 import asyncio
 
 async def start(update: Update, context: CallbackContext) -> None:
@@ -16,7 +16,7 @@ async def save_json(arr, filename):
 
 async def handle_message(update: Update, context: CallbackContext) -> None:
     try:
-        await update.message.reply_text('Ищу данные...')
+        searching_message = await update.message.reply_text('Ищу данные...')
 
         product_name = update.message.text
 
@@ -32,15 +32,15 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
         parsers = {
             "Platan": parsePlaywright.parse_platan,
             "DIP8": parsePlaywright.parse_dip8,
-            "MIRECOM": parsePlaywright.parse_mirecom,
-            "RADIOCOMPLECT": parsePlaywright.parse_radiocomplect,
-            # "CHIPSTER": parse4.parse_chipster,
-            "ChipDip": parsePlaywright.parse_chipdip
+            "MIRECOM": parsePlaywright.parse_MIREKOM,
+            "RADIOCOMPLECT": parsePlaywright.parse_RADIOCOMPLECT,
+            # "CHIPSTER": parsePlaywright.parse_chipster,
+            "ChipDip": parsePlaywright.parse_ChipDip
         }
+
         tasks = [parsers[key](links[key]) for key in parsers]
         results_tasks = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Обработка результатов
         output_results = {}
         for elem in results_tasks:
             if isinstance(elem, dict):
@@ -50,45 +50,52 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
             else:
                 output_results[str(elem)] = []
 
-        # Формирование сообщения
+                # Формирование сообщения
         results = []
         for name, result in output_results.items():
-            results.append(f"<b>Результаты для {html.escape(name)}:</b>")
+            escaped_name = html.escape(name)
+            results.append(f"<b>Результаты для {escaped_name}:</b>")
+
             if result and isinstance(result, list):
                 for product in result:
-                    product_name = html.escape(product.get("name", "Неизвестный товар"))
+                    raw_name = product.get("name", "Неизвестный товар")
+                    product_name = html.escape(raw_name)
                     availability = html.escape(str(product.get("availability", "-")))
                     price = html.escape(str(product.get("price", "-")))
-                    product_url = html.escape(product.get("url", ""))
+                    product_url = product.get("url", "")
 
-                    # Формируем гиперссылку, если есть URL
-                    if "url" in product and product["url"]:
-                        name_with_link = f'<a href="{product_url}">{product_name}</a>'
+                    # Гиперссылка на товар
+                    if product_url:
+                        escaped_url = html.escape(product_url)
+                        name_with_link = f'<a href="{escaped_url}">{product_name}</a>'
                     else:
-                        name_with_link = product["name"]
+                        name_with_link = product_name
 
-                    # Формируем сообщение
                     details = [
-                        f"🔹 {name_with_link.replace("-", "&#45;")}",
-                        f"📦 Наличие: {availability.replace("-", "&#45;")}\n"
-                        f"💰 Цена:{price.replace("-", "&#45;")}"
+                        f"🔹 {name_with_link}",
+                        f"📦 Наличие: {availability}",
+                        f"💰 Цена: {price}"
                     ]
                     results.append("\n".join(details) + "\n")
             else:
                 results.append("⚠️ <i>Результатов не найдено</i>")
 
-        # Ограничение Telegram (макс. длина сообщения — 4096 символов)
+        # Отправка сообщений с ограничением Telegram
         max_message_length = 4096
         message = "\n".join(results)
 
         for i in range(0, len(message), max_message_length):
-            await update.message.reply_text(message[i:i + max_message_length], parse_mode="HTML",
-                                            disable_web_page_preview=True)
+            await update.message.reply_text(
+                message[i:i + max_message_length],
+                parse_mode="HTML",
+                disable_web_page_preview=True
+            )
 
+        await searching_message.delete()
         await update.message.reply_text('Введите название товара:', parse_mode="HTML")
 
     except Exception as e:
-        await update.message.reply_text(f'Ошибка при обработке: {e}', parse_mode="HTML")
+        await update.message.reply_text(f'Ошибка при обработке: {html.escape(str(e))}', parse_mode="HTML")
         await update.message.reply_text('Введите название товара:', parse_mode="HTML")
 
 

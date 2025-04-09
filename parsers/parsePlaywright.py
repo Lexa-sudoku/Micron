@@ -99,18 +99,18 @@ async def parse_MIREKOM(link):
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
         try:
-            await page.goto(link, timeout=10000)
-            await page.wait_for_selector(".search-container", timeout=5000)
+            await page.goto(link, timeout=1000)
+            await page.wait_for_selector(".search-container", timeout=1000)
         except Exception as e:
             print(f"Ошибка загрузки страницы: {e}")
             await browser.close()
-            return []
+            return None
 
         parsed = []
 
         try:
             container = page.locator(".search-container").first
-            await container.wait_for(timeout=3000)
+            await container.wait_for(timeout=1000)
 
             lines = await container.locator(".line").all()
 
@@ -155,17 +155,18 @@ async def parse_MIREKOM(link):
             print(f"Ошибка при парсинге первой категории: {e}")
 
         await browser.close()
-        return parsed
+        return parsed if parsed else None
+
 
 async def parse_RADIOCOMPLECT(link):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await page.goto(link, timeout=30000)
+        await page.goto(link, timeout=1000)
 
         try:
             # Ждем, пока загрузится таблица с продуктами
-            await page.wait_for_selector("table.prds__item_tab", timeout=5000)  # Увеличили тайм-аут до 5 секунд
+            await page.wait_for_selector("table.prds__item_tab", timeout=1000)  # Увеличили тайм-аут до 5 секунд
         except Exception as e:
             print(f"Ошибка при ожидании элемента: {e}")
             await browser.close()
@@ -181,12 +182,12 @@ async def parse_RADIOCOMPLECT(link):
 
         for table in tables:
             try:
-                name = await table.locator("a.prds__item_name span.prds__item_name_in").first.text_content(timeout=5000)
+                name = await table.locator("a.prds__item_name span.prds__item_name_in").first.text_content(timeout=1000)
                 href = await table.locator("a.prds__item_name").first.get_attribute("href")
                 url = f"https://radiocomplect.ru{href}"
 
-                price = await table.locator(".prd_form__price_val").first.text_content(timeout=5000)
-                availability = await table.locator(".prd_form__q_ex").first.text_content(timeout=5000)
+                price = await table.locator(".prd_form__price_val").first.text_content(timeout=1000)
+                availability = await table.locator(".prd_form__q_ex").first.text_content(timeout=1000)
 
                 parsed.append({
                     "name": name.strip(),
@@ -204,10 +205,10 @@ async def parse_ChipDip(link):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await page.goto(link, timeout=30000)  # Уменьшаем таймаут для перехода
+        await page.goto(link, timeout=1000)  # Уменьшаем таймаут для перехода
 
         try:
-            await page.wait_for_selector("#itemlist tbody tr.with-hover", timeout=30000)  # Увеличиваем таймаут для элементов
+            await page.wait_for_selector("#itemlist tbody tr.with-hover", timeout=1000)  # Увеличиваем таймаут для элементов
             rows = await page.locator("#itemlist tbody tr.with-hover").all()
         except Exception as e:
             print(f"ChipDip: rows not found — {e}")

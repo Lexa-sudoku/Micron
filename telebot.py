@@ -15,19 +15,19 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
         links = {
             "Platan": f"https://www.platan.ru/cgi-bin/qwery_i.pl?code={product_name}",
             "DIP8": f"https://dip8.ru/shop/?q={product_name}",
-            #"MIREKOM": f"https://mirekom.ru/price/find.php?text={product_name}",
+            "MIREKOM": f"https://mirekom.ru/price/find.php?text={product_name}",
             "RADIOCOMPLECT": f"https://radiocomplect.ru/search/?searchstring={product_name}",
             #"CHIPSTER": f"https://chipster.ru/search.html?q={product_name}",
-            "ChipDip": f"https://www.chipdip.ru/search?searchtext={product_name}"
+            #"ChipDip": f"https://www.chipdip.ru/search?searchtext={product_name}"
         }
 
         parsers = {
             "Platan": parsePlaywright.parse_platan,
             "DIP8": parsePlaywright.parse_dip8,
-            #"MIREKOM": parsePlaywright.parse_MIREKOM,
+            "MIREKOM": parsePlaywright.parse_MIREKOM,
             "RADIOCOMPLECT": parsePlaywright.parse_RADIOCOMPLECT,
             #"CHIPSTER": parseSelenium.parse_CHIPSTER,
-            "ChipDip": parsePlaywright.parse_ChipDip
+            #"ChipDip": parsePlaywright.parse_ChipDip
         }
 
         results = []

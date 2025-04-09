@@ -24,7 +24,7 @@ async def parse_platan(link):
             if results_text == '0':
                 await browser.close()
                 return []
-        except:
+        except Exception:
             pass
 
         rows = await page.locator("tr.border-bottom").all()
@@ -46,7 +46,7 @@ async def parse_platan(link):
 
                 try:
                     availability = await row.locator("td:has-text('шт.'), td:has-text('под заказ'), td:has-text('раб.дня')").text_content()
-                except:
+                except Exception:
                     availability = "Не указано"
 
                 products.append({"name": name, "url": url, "prices": prices, "availability": availability})
@@ -75,7 +75,7 @@ async def parse_dip8(link):
 
                 try:
                     availability = await card.locator(".yellow").text_content()
-                except:
+                except Exception:
                     availability = "Не указано"
 
                 prices = []
@@ -85,7 +85,7 @@ async def parse_dip8(link):
                         price = await block.locator(".price_value").text_content()
                         qty = await block.locator(".price_interval").text_content()
                         prices.append({"price": price.strip(), "quantity": qty.strip()})
-                    except:
+                    except Exception:
                         pass
 
                 products.append({"name": name.strip(), "url": url, "availability": availability, "prices": prices})
@@ -100,29 +100,65 @@ async def parse_MIREKOM(link):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await page.goto(link)
+        try:
+            await page.goto(link, timeout=10000)
+            await page.wait_for_selector(".search-container", timeout=5000)
+        except Exception as e:
+            print(f"Ошибка загрузки страницы: {e}")
+            await browser.close()
+            return []
 
-        await asyncio.sleep(1)
-        products = await page.locator(".line").all()
         parsed = []
 
-        for prod in products:
-            try:
-                text = await prod.inner_text()
-                lines = text.strip().split("\n")
-                name = lines[0] if len(lines[0]) > 10 else ' '.join(lines[:2])
-                url = await prod.locator("a").get_attribute("href")
-                url = f"https://mirekom.ru{url}"
+        try:
+            container = page.locator(".search-container").first
+            await container.wait_for(timeout=3000)
 
-                availability = lines[-1] if 'Нет в наличии' in lines[-1] else lines[-4]
-                price = 'N/A' if 'Нет в наличии' in lines[-1] else lines[-3].strip(" р.")
+            lines = await container.locator(".line").all()
 
-                parsed.append({"name": name, "availability": availability, "price": price, "url": url})
-            except Exception as e:
-                print(f"MIREKOM parse error: {e}")
+            for line in lines:
+                try:
+                    class_name = await line.get_attribute("class")
+                    if "hdr" in class_name:
+                        continue
+
+                    name_el = line.locator(".std a")
+                    name = await name_el.inner_text()
+                    url_part = await name_el.get_attribute("href")
+                    url = f"https://mirekom.ru{url_part}"
+
+                    # Наличие
+                    try:
+                        quantity = await line.locator(".qua").inner_text()
+                    except Exception:
+                        try:
+                            quantity = await line.locator(".un3").inner_text()
+                        except Exception:
+                            quantity = "Нет в наличии"
+
+                    # Цена
+                    try:
+                        price = await line.locator(".pri").inner_text()
+                        price = price.strip().replace(" р.", "")
+                    except Exception:
+                        price = "N/A"
+
+                    parsed.append({
+                        "name": name,
+                        "availability": quantity,
+                        "price": price,
+                        "url": url,
+                    })
+
+                except Exception as e:
+                    print(f"Ошибка при разборе товара: {e}")
+
+        except Exception as e:
+            print(f"Ошибка при парсинге первой категории: {e}")
 
         await browser.close()
         return parsed
+
 
 
 async def parse_RADIOCOMPLECT(link):
@@ -131,14 +167,12 @@ async def parse_RADIOCOMPLECT(link):
         page = await browser.new_page()
         await page.goto(link, timeout=30000)
 
-        # Ждём таблицы, если они есть
         await page.wait_for_selector("table.prds__item_tab", timeout=10000)
         tables = await page.locator("table.prds__item_tab").all()
         parsed = []
 
         for table in tables:
             try:
-                # Избегаем ошибки strict mode, уточняя класс span
                 name = await table.locator("a.prds__item_name span.prds__item_name_in").first.text_content(timeout=5000)
                 href = await table.locator("a.prds__item_name").first.get_attribute("href")
                 url = f"https://radiocomplect.ru{href}"
@@ -158,6 +192,7 @@ async def parse_RADIOCOMPLECT(link):
         await browser.close()
         return parsed
 
+
 async def parse_ChipDip(link):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -165,7 +200,6 @@ async def parse_ChipDip(link):
         await page.goto(link, timeout=60000)
 
         try:
-            # Ожидаем загрузки таблицы с товарами
             await page.wait_for_selector("#itemlist tbody tr:not(.group-header-wrap)", timeout=15000)
             rows = await page.locator("#itemlist tbody tr:not(.group-header-wrap)").all()
         except Exception as e:
@@ -175,26 +209,21 @@ async def parse_ChipDip(link):
 
         parsed = []
 
-        # Обрабатываем строки таблицы
         for row in rows:
             try:
-                # Получаем название товара и ссылку
                 title_el = row.locator("a.link")
                 title = await title_el.text_content()
                 href = await title_el.get_attribute("href")
                 url = f"https://www.chipdip.ru{href}" if href else ""
 
-                # Получаем ID товара и цену
                 product_id = await row.get_attribute("id")
                 product_id = product_id.replace("item", "") if product_id else ""
                 price_el = row.locator(f"#price_{product_id}")
                 price = await price_el.text_content() if price_el else "Цена не указана"
 
-                # Получаем наличие товара
                 avail_el = row.locator("td.h_av span.item__avail")
                 availability = await avail_el.text_content() if avail_el else "Нет информации"
 
-                # Получаем оптовые цены
                 wholesale = []
                 addprice_blocks = await row.locator("div.addprice-w div.addprice").all()
                 for block in addprice_blocks:
@@ -213,7 +242,8 @@ async def parse_ChipDip(link):
 
         await browser.close()
         return parsed
-    
+
+
 async def main():
     product = input("Введите название товара: ")
     urls = build_urls(product)
@@ -234,6 +264,7 @@ async def main():
                 print(json.dumps(r, indent=2, ensure_ascii=False))
         else:
             print("Результатов не найдено")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

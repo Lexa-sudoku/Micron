@@ -163,9 +163,9 @@ async def parse_ChipDip(link):
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
         await page.goto(link, timeout=60000)
-        await page.reload()
 
         try:
+            # Ожидаем загрузки таблицы с товарами
             await page.wait_for_selector("#itemlist tbody tr:not(.group-header-wrap)", timeout=15000)
             rows = await page.locator("#itemlist tbody tr:not(.group-header-wrap)").all()
         except Exception as e:
@@ -175,41 +175,31 @@ async def parse_ChipDip(link):
 
         parsed = []
 
+        # Обрабатываем строки таблицы
         for row in rows:
             try:
-                # Название и ссылка
+                # Получаем название товара и ссылку
                 title_el = row.locator("a.link")
-                await title_el.wait_for(timeout=3000)
                 title = await title_el.text_content()
                 href = await title_el.get_attribute("href")
                 url = f"https://www.chipdip.ru{href}" if href else ""
 
-                # ID товара для получения цены
+                # Получаем ID товара и цену
                 product_id = await row.get_attribute("id")
                 product_id = product_id.replace("item", "") if product_id else ""
-
-                # Цена
                 price_el = row.locator(f"#price_{product_id}")
-                await price_el.wait_for(timeout=3000)
-                price = await price_el.text_content()
+                price = await price_el.text_content() if price_el else "Цена не указана"
 
-                # Наличие
-                try:
-                    avail_el = row.locator("td.h_av span.item__avail")
-                    await avail_el.wait_for(timeout=2000)
-                    availability = await avail_el.text_content()
-                except:
-                    availability = "Нет информации"
+                # Получаем наличие товара
+                avail_el = row.locator("td.h_av span.item__avail")
+                availability = await avail_el.text_content() if avail_el else "Нет информации"
 
-                # Оптовые цены
+                # Получаем оптовые цены
                 wholesale = []
-                try:
-                    addprice_blocks = await row.locator("div.addprice-w div.addprice").all()
-                    for block in addprice_blocks:
-                        price_text = await block.inner_text()
-                        wholesale.append(price_text.strip())
-                except:
-                    pass
+                addprice_blocks = await row.locator("div.addprice-w div.addprice").all()
+                for block in addprice_blocks:
+                    price_text = await block.inner_text()
+                    wholesale.append(price_text.strip())
 
                 parsed.append({
                     "name": title.strip() if title else "",
@@ -223,7 +213,7 @@ async def parse_ChipDip(link):
 
         await browser.close()
         return parsed
-
+    
 async def main():
     product = input("Введите название товара: ")
     urls = build_urls(product)

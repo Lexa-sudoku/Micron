@@ -56,7 +56,6 @@ async def parse_platan(link):
         await browser.close()
         return products
 
-
 async def parse_dip8(link):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -94,7 +93,6 @@ async def parse_dip8(link):
 
         await browser.close()
         return products
-
 
 async def parse_MIREKOM(link):
     async with async_playwright() as p:
@@ -159,17 +157,27 @@ async def parse_MIREKOM(link):
         await browser.close()
         return parsed
 
-
-
 async def parse_RADIOCOMPLECT(link):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
         await page.goto(link, timeout=30000)
 
-        await page.wait_for_selector("table.prds__item_tab", timeout=10000)
+        try:
+            # Ждем, пока загрузится таблица с продуктами
+            await page.wait_for_selector("table.prds__item_tab", timeout=5000)  # Увеличили тайм-аут до 5 секунд
+        except Exception as e:
+            print(f"Ошибка при ожидании элемента: {e}")
+            await browser.close()
+            return []  # Если элемент не найден, возвращаем пустой список
+
         tables = await page.locator("table.prds__item_tab").all()
         parsed = []
+
+        if not tables:
+            print("Не найдено таблиц с продуктами.")
+            await browser.close()
+            return []  # Если таблиц нет, возвращаем пустой список
 
         for table in tables:
             try:
@@ -192,16 +200,15 @@ async def parse_RADIOCOMPLECT(link):
         await browser.close()
         return parsed
 
-
 async def parse_ChipDip(link):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await page.goto(link, timeout=60000)
+        await page.goto(link, timeout=30000)  # Уменьшаем таймаут для перехода
 
         try:
-            await page.wait_for_selector("#itemlist tbody tr:not(.group-header-wrap)", timeout=15000)
-            rows = await page.locator("#itemlist tbody tr:not(.group-header-wrap)").all()
+            await page.wait_for_selector("#itemlist tbody tr.with-hover", timeout=30000)  # Увеличиваем таймаут для элементов
+            rows = await page.locator("#itemlist tbody tr.with-hover").all()
         except Exception as e:
             print(f"ChipDip: rows not found — {e}")
             await browser.close()
@@ -211,17 +218,16 @@ async def parse_ChipDip(link):
 
         for row in rows:
             try:
-                title_el = row.locator("a.link")
+                title_el = row.locator("a.link[href]")
                 title = await title_el.text_content()
                 href = await title_el.get_attribute("href")
                 url = f"https://www.chipdip.ru{href}" if href else ""
 
-                product_id = await row.get_attribute("id")
-                product_id = product_id.replace("item", "") if product_id else ""
-                price_el = row.locator(f"#price_{product_id}")
+                price_el = row.locator("span.price-main")
                 price = await price_el.text_content() if price_el else "Цена не указана"
 
-                avail_el = row.locator("td.h_av span.item__avail")
+                # Получаем первый элемент доступности, если их несколько
+                avail_el = row.locator("span.item__avail").first  # Здесь используем `.first()` для выбора первого элемента
                 availability = await avail_el.text_content() if avail_el else "Нет информации"
 
                 wholesale = []
@@ -242,7 +248,6 @@ async def parse_ChipDip(link):
 
         await browser.close()
         return parsed
-
 
 async def main():
     product = input("Введите название товара: ")

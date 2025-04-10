@@ -1,6 +1,6 @@
 #  **Micron** 
 
-This project is a Telegram bot that helps users find the best prices for microchips by gathering information from popular online electronics stores. The bot automatically scrapes websites and provides users with the current best prices for the components they are looking for.
+This project is an open-source Telegram bot that helps users find the best prices for microchips by gathering information from popular online electronics stores. The bot automatically scrapes websites and provides users with the current best prices for the components they are looking for.
 
 ##  **Description**
 
@@ -25,7 +25,7 @@ Main features of the bot:
 ### Example Usage:
 
 1. **Search for a product**:
-   - Send the name of the microchip, for example: `ATmega328-AU`.
+   - Send the name of the microchip, for example: `AN7112E`.
    
 2. **Receiving a response**:
    - The bot finds the product on multiple platforms and shows you the best offers, like:

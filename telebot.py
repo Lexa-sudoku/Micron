@@ -1,31 +1,27 @@
 import html
-import json
+import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 from parsers import parsePlaywright
-import asyncio
+# Импорт парсеров напрямую из модуля parser
+
+
 
 async def start(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text('Привет! Отправьте мне название товара, и я найду информацию.')
 
 
-async def save_json(arr, filename):
-    with open(f"{filename}.json", "w", encoding="utf-8") as f:
-        f.write(json.dumps(arr, ensure_ascii=False))
-        f.close()
-
 async def handle_message(update: Update, context: CallbackContext) -> None:
     try:
         searching_message = await update.message.reply_text('Ищу данные...')
 
-        product_name = update.message.text
+        product_name = update.message.text.strip()
 
         links = {
             "Platan": f"https://www.platan.ru/cgi-bin/qwery_i.pl?code={product_name}",
             "DIP8": f"https://dip8.ru/shop/?q={product_name}",
             "MIRECOM": f"https://mirekom.ru/price/find.php?text={product_name}",
             "RADIOCOMPLECT": f"https://radiocomplect.ru/search/?searchstring={product_name}",
-            "CHIPSTER": f"https://chipster.ru/search.html?q={product_name}",
             "ChipDip": f"https://www.chipdip.ru/search?searchtext={product_name}"
         }
 
@@ -34,42 +30,30 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
             "DIP8": parsePlaywright.parse_dip8,
             "MIRECOM": parsePlaywright.parse_MIREKOM,
             "RADIOCOMPLECT": parsePlaywright.parse_RADIOCOMPLECT,
-            # "CHIPSTER": parsePlaywright.parse_chipster,
             "ChipDip": parsePlaywright.parse_ChipDip
         }
 
+        # Параллельный запуск всех парсеров
         tasks = [parsers[key](links[key]) for key in parsers]
         results_tasks = await asyncio.gather(*tasks, return_exceptions=True)
 
         output_results = {}
-        for elem in results_tasks:
-            if isinstance(elem, dict):
-                parse_site = list(elem.keys())[0]
-                parse_result = list(elem.values())[0]
-                output_results[parse_site] = parse_result
-            else:
-                output_results[str(elem)] = []
+        for key, elem in zip(parsers.keys(), results_tasks):
+            output_results[key] = elem if isinstance(elem, list) else []
 
-                # Формирование сообщения
+        # Сборка сообщений
         results = []
-        for name, result in output_results.items():
-            escaped_name = html.escape(name)
-            results.append(f"<b>Результаты для {escaped_name}:</b>")
+        for site_name, products in output_results.items():
+            results.append(f"<b>Результаты для {html.escape(site_name)}:</b>")
 
-            if result and isinstance(result, list):
-                for product in result:
-                    raw_name = product.get("name", "Неизвестный товар")
-                    product_name = html.escape(raw_name)
+            if products:
+                for product in products:
+                    name = html.escape(product.get("name", "Неизвестный товар"))
+                    url = product.get("url", "")
                     availability = html.escape(str(product.get("availability", "-")))
                     price = html.escape(str(product.get("price", "-")))
-                    product_url = product.get("url", "")
 
-                    # Гиперссылка на товар
-                    if product_url:
-                        escaped_url = html.escape(product_url)
-                        name_with_link = f'<a href="{escaped_url}">{product_name}</a>'
-                    else:
-                        name_with_link = product_name
+                    name_with_link = f'<a href="{html.escape(url)}">{name}</a>' if url else name
 
                     details = [
                         f"🔹 {name_with_link}",
@@ -80,13 +64,12 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
             else:
                 results.append("⚠️ <i>Результатов не найдено</i>")
 
-        # Отправка сообщений с ограничением Telegram
-        max_message_length = 4096
+        # Отправка по частям (на случай большого количества текста)
+        max_len = 4096
         message = "\n".join(results)
-
-        for i in range(0, len(message), max_message_length):
+        for i in range(0, len(message), max_len):
             await update.message.reply_text(
-                message[i:i + max_message_length],
+                message[i:i + max_len],
                 parse_mode="HTML",
                 disable_web_page_preview=True
             )
@@ -101,8 +84,6 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
 
 def main():
     token = '7729099930:AAFveGDAgd6oBzzVtufJKbk2oMyNgbcnz3Q'
-    # my
-    # token = '7160408679:AAHHo2JYCv4JsDt8FIs29mGv0x9PxoqExrQ'
     app = Application.builder().token(token).build()
 
     app.add_handler(CommandHandler('start', start))

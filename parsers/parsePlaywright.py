@@ -1,6 +1,4 @@
 from playwright.async_api import async_playwright
-import asyncio
-import json
 
 
 def build_urls(product_name):
@@ -56,6 +54,7 @@ async def parse_platan(link):
         await browser.close()
         return products
 
+
 async def parse_dip8(link):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -94,6 +93,7 @@ async def parse_dip8(link):
         await browser.close()
         return products
 
+
 async def parse_MIREKOM(link):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -125,7 +125,6 @@ async def parse_MIREKOM(link):
                     url_part = await name_el.get_attribute("href")
                     url = f"https://mirekom.ru{url_part}"
 
-                    # Наличие
                     try:
                         quantity = await line.locator(".qua").inner_text()
                     except Exception:
@@ -134,7 +133,6 @@ async def parse_MIREKOM(link):
                         except Exception:
                             quantity = "Нет в наличии"
 
-                    # Цена
                     try:
                         price = await line.locator(".pri").inner_text()
                         price = price.strip().replace(" р.", "")
@@ -165,12 +163,11 @@ async def parse_RADIOCOMPLECT(link):
         await page.goto(link, timeout=1000)
 
         try:
-            # Ждем, пока загрузится таблица с продуктами
-            await page.wait_for_selector("table.prds__item_tab", timeout=1000)  # Увеличили тайм-аут до 5 секунд
+            await page.wait_for_selector("table.prds__item_tab", timeout=5000)
         except Exception as e:
             print(f"Ошибка при ожидании элемента: {e}")
             await browser.close()
-            return []  # Если элемент не найден, возвращаем пустой список
+            return []
 
         tables = await page.locator("table.prds__item_tab").all()
         parsed = []
@@ -178,7 +175,7 @@ async def parse_RADIOCOMPLECT(link):
         if not tables:
             print("Не найдено таблиц с продуктами.")
             await browser.close()
-            return []  # Если таблиц нет, возвращаем пустой список
+            return []
 
         for table in tables:
             try:
@@ -201,14 +198,15 @@ async def parse_RADIOCOMPLECT(link):
         await browser.close()
         return parsed
 
+
 async def parse_ChipDip(link):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await page.goto(link, timeout=1000)  # Уменьшаем таймаут для перехода
+        await page.goto(link, timeout=1000)
 
         try:
-            await page.wait_for_selector("#itemlist tbody tr.with-hover", timeout=1000)  # Увеличиваем таймаут для элементов
+            await page.wait_for_selector("#itemlist tbody tr.with-hover", timeout=1000)
             rows = await page.locator("#itemlist tbody tr.with-hover").all()
         except Exception as e:
             print(f"ChipDip: rows not found — {e}")
@@ -227,8 +225,7 @@ async def parse_ChipDip(link):
                 price_el = row.locator("span.price-main")
                 price = await price_el.text_content() if price_el else "Цена не указана"
 
-                # Получаем первый элемент доступности, если их несколько
-                avail_el = row.locator("span.item__avail").first  # Здесь используем `.first()` для выбора первого элемента
+                avail_el = row.locator("span.item__avail").first
                 availability = await avail_el.text_content() if avail_el else "Нет информации"
 
                 wholesale = []
@@ -249,28 +246,3 @@ async def parse_ChipDip(link):
 
         await browser.close()
         return parsed
-
-async def main():
-    product = input("Введите название товара: ")
-    urls = build_urls(product)
-
-    results = await asyncio.gather(
-        parse_platan(urls['platan']),
-        parse_dip8(urls['dip8']),
-        parse_MIREKOM(urls['mirekom']),
-        parse_RADIOCOMPLECT(urls['radiocomplect']),
-        parse_ChipDip(urls['chipdip'])
-    )
-
-    site_names = ["Platan", "DIP8", "MIREKOM", "RADIOCOMPLECT", "ChipDip"]
-    for name, res in zip(site_names, results):
-        print(f"\nРезультаты для {name}:")
-        if res:
-            for r in res:
-                print(json.dumps(r, indent=2, ensure_ascii=False))
-        else:
-            print("Результатов не найдено")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

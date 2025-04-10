@@ -25,7 +25,7 @@ Main features of the bot:
 ### Example Usage:
 
 1. **Search for a product**:
-   - Send the name of the microchip, for example: `ATmega328-AU`.
+   - Send the name of the microchip, for example: `AN7112E`.
    
 2. **Receiving a response**:
    - The bot finds the product on multiple platforms and shows you the best offers, like:

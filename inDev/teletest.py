@@ -1,5 +1,3 @@
-'''
-
 import html
 import json
 from telegram import Update
@@ -313,7 +311,7 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text('Введите название товара:', parse_mode="HTML")
 
 def main():
-    token = '7729099930:AAFveGDAgd6oBzzVtufJKbk2oMyNgbcnz3Q'
+    token = '8013542802:AAE2w8aUACfwLmMDlEDRTUOKAD7uuxHbyhE'
     app = Application.builder().token(token).build()
 
     app.add_handler(CommandHandler('start', start))
@@ -323,5 +321,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-'''

@@ -2,7 +2,9 @@ import html
 import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-from parsers import parsePlaywright
+from inDev import parsePlaywright
+
+
 # Импорт парсеров напрямую из модуля parser
 
 

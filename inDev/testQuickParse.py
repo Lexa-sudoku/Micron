@@ -26,10 +26,10 @@ async def fetch_page_data(browser, link, parser):
     finally:
         await page.close()
 
-
 # Парсер для сайта Platan
 async def parse_platan(page):
     results = []
+    print(page.url)
     try:
         if await page.locator("h1.text-success sub").text_content() == '0':
             return results
@@ -61,7 +61,7 @@ async def parse_platan(page):
         print(f"Platan parse error (outer): {e}")
     return results
 
-
+# Парсер для сайта Dip8
 async def parse_dip8(page):
     products = []
     try:
@@ -73,7 +73,7 @@ async def parse_dip8(page):
                 url = f"https://dip8.ru{href}" if href else ""
                 prices = [
                     {"price": await block.locator(".price_value").text_content(),
-                     "quantity": await block.locator(".price_interval").text_content()}
+                     "quantity": str(await block.locator(".price_interval").text_content()).replace('\n', '').replace('\t', '')}
                     for block in await card.locator(".price_wrapper_block").all()
                 ]
                 availability = await card.locator(".yellow").first.text_content()  # Уточнение селектора
@@ -85,8 +85,10 @@ async def parse_dip8(page):
                 })
             except Exception as e:
                 print(f"DIP8 parse error: {e}")
+                return products
     except Exception as e:
         print(f"DIP8 parse error (outer): {e}")
+        return products
     return products
 
 
@@ -94,16 +96,19 @@ async def parse_dip8(page):
 async def parse_mirekom(page):
     parsed = []
     try:
-        products = await page.locator(".line").all()
-        for prod in products:
+        products = await page.locator("div.itemslist div.itemslist .line").all()
+        for prod in products[1:]:
             try:
+                if 'Номер' in await prod.inner_text():
+                    break
                 text = await prod.inner_text()
                 lines = text.strip().split("\n")
                 name = lines[0] if len(lines[0]) > 10 else ' '.join(lines[:2])
-                href = await prod.locator("a").get_attribute("href")
+                href = await prod.locator('.ima a').get_attribute("href")
                 url = f"https://mirekom.ru{href}"
-                availability = lines[-1] if 'Нет в наличии' in lines[-1] else lines[-4]
-                price = 'N/A' if 'Нет в наличии' in lines[-1] else lines[-3].strip(" р.")
+                availability = lines[-1] if 'Нет в наличии' in lines[-1] else "В наличии " + lines[-4]
+                price = 'N/A' if 'Нет в наличии' in lines[-1] else lines[-3].strip(" р.").split()[-1]
+                name = ' '.join(name.split('\\')[1:])
                 parsed.append({
                     "name": name.strip(),
                     "url": url,
@@ -148,7 +153,7 @@ async def parse_chipdip(page):
     parsed = []
     try:
         await page.reload()
-        rows = await page.locator("#itemlist tbody tr:not(.group-header-wrap)").all()
+        rows = await page.locator("tbody tr.with-hover").all()
         for row in rows:
             try:
                 title_el = row.locator("a.link")
@@ -182,7 +187,7 @@ async def main():
     urls = build_urls(product)
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(headless=False)
 
         tasks = [
             fetch_page_data(browser, urls["platan"], parse_platan),
@@ -194,10 +199,13 @@ async def main():
 
         results = await asyncio.gather(*tasks)
         site_names = ["Platan", "DIP8", "MIREKOM", "RADIOCOMPLECT", "ChipDip"]
-
+        to_file = {}
         for name, res in zip(site_names, results):
             print(f"\nРезультаты для {name}:")
             print(json.dumps(res, indent=2, ensure_ascii=False))
+            to_file[name] = res
+        with open('data.json', 'w', encoding='utf-8') as f:
+            f.write(json.dumps(to_file, ensure_ascii=False))
 
         await browser.close()
 

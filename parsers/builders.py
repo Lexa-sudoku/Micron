@@ -12,7 +12,13 @@ def build_urls(product_name):
 async def fetch_page_data(browser, link, parser):
     page = await browser.new_page()
     try:
-        await page.goto(link, timeout=5000)
+        if link.startswith('https://www.platan.ru'):
+            await page.goto(link, wait_until='domcontentloaded')
+        elif link.startswith('https://dip8.ru'):
+            await page.goto(link, timeout=5000)
+            await page.reload()
+        else:
+            await page.goto(link, timeout=5000)
         return await parser(page)
     except Exception as e:
         print(f"Ошибка при обработке {link}: {e}")

@@ -311,7 +311,7 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text('Введите название товара:', parse_mode="HTML")
 
 def main():
-    token = '8013542802:AAE2w8aUACfwLmMDlEDRTUOKAD7uuxHbyhE'
+    token = 'ur token'
     app = Application.builder().token(token).build()
 
     app.add_handler(CommandHandler('start', start))

@@ -46,4 +46,4 @@ Main features of the bot:
 ## **Conributors**
   Litvintsev Matvei
   
-  Karasev Dmitriy
+  [Karasev Dmitriy](https://github.com/dkarasevgthub)

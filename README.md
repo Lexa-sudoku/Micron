@@ -2,6 +2,8 @@
 
 This project is an open-source Telegram bot that helps users find the best prices for microchips by gathering information from popular online electronics stores. The bot automatically scrapes websites and provides users with the current best prices for the components they are looking for.
 
+![Image](https://github.com/user-attachments/assets/ee0f1a75-2a5e-4f7a-ac8d-ff0b02ffc209)
+
 ##  **Description**
 
 The Telegram bot allows users to search for microchips by name and get real-time prices from various online stores like **ChipDip**, **Mirekom**, **Dip8**, and others. The bot uses scraping technology to collect information from multiple websites and presents users with the lowest prices for the products they search for.

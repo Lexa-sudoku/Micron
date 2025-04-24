@@ -2,6 +2,8 @@
 
 This project is an open-source Telegram bot that helps users find the best prices for microchips by gathering information from popular online electronics stores. The bot automatically scrapes websites and provides users with the current best prices for the components they are looking for.
 
+[![Maintainability](https://qlty.sh/badges/1e2ac7d7-e728-4a76-a813-49b9b6142ce3/maintainability.svg)](https://qlty.sh/gh/Lexa-sudoku/projects/Micron)
+
 ![Image](https://github.com/user-attachments/assets/ee0f1a75-2a5e-4f7a-ac8d-ff0b02ffc209)
 
 ##  **Description**
